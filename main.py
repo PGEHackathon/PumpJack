@@ -3,33 +3,49 @@ from scipy.stats import iqr
 import numpy as np
 import pandas as pd
 
-df = pd.read_csv('wellbore_data_producer_wells.csv')
-
 class Well:
     #
-    #   __init()__ function for Well
+    #   FUNCTION __init()__
     #
     #   description: takes the individual column value for the row being evaluated and puts this data into the Well object
     # 
 
     def __init__(self, well):
-        x = well['X, m']
-        y = well['Y, m']
-        depth = well['Depth, m']
-        if (well['Porosity, fraction'] != None):
-            poros = well['Porosity, fraction'] 
-        else:
-            # imputation function GOES HERE
-            poros = 0
-        if (well['Permiability, mD'] != None):
-            permiablity = well['Permiability, mD']
-        else: 
-            # imputation function GOES HERE
-            permiablity = 0
-        
-        ai = well['Accoustic Impedance, kg*s/m^2']
+        #   ID = well_no
+        self.id = well['Well_ID'].unique()[0]
+        #   x = unique x value (meters) in the 20 pieces of data
+        self.x = well['X, m'].unique()[0]
+        #   y = unique y value (meters) in the 20 pieces of data
+        self.y = well['Y, m'].unique()[0]
 
-        rock = well['Rock facies']
+        # self.attributes = []
+        well = self.threshold_nan_filler(well)
+        # for x in well.columns:
+        #     self.attributes.append((x, list(well.loc[:, x].values)))
+
+    def threshold_nan_filler(self, well):
+        # create for loop to run through each column and return percent NaN 
+        for column in well:
+            missing_percent_stat = well[column].isnull().sum() * (1 / (len(well[column])))
+            if (column == 'Well_ID' or column == 'Rock facies'):
+                continue
+            if (column == 'Rock facies'):
+                well = well.drop([column])
+                continue
+            if (missing_percent_stat >= .2):
+               well = well.drop([column])
+            elif (missing_percent_stat <= .2):
+               mean_filler = np.average(well[column])
+               x = len(well[column])
+               for i in range(x):
+                   if well[column][i] == np.nan:
+                      well[column][i] = mean_filler
+
+
+
+        return well
+
+        
 
 class Calculator:
 
@@ -80,24 +96,20 @@ class Calculator:
         upper_range = q3 + (1.5 * iqr)
 
         return lower_range, upper_range
+
+
+df = pd.read_csv('wellbore_data_producer_wells.csv')
+
+well_ID_unique = df.Well_ID.unique()
+
+def instantiate_wells(DF):
+    wells = []
+    for x in well_ID_unique:
+        well = Well(DF[DF.Well_ID == x])
+        wells.append(well)
+    return wells
+
+wells = instantiate_wells(df)
+
 calc = Calculator()
 data_floats = df.select_dtypes(include=[np.float64])
-rock = df['Rock facies']
-y_col = data_floats['Youngs modulus, GPa']
-s_col = data_floats['Shear modulus, GPa']
-
-x = 1
-y_Na = y_col.isna().sum()
-s_Na = s_col.isna().sum()
-#while x < 1460:
-  #  print("Rock Facies:\t", rock[x], "\nYoungs modulus:\t", y_col[x], "\nShears modulus:\t", s_col[x], "\nPoissons constant:\t", calc.calc_poissons_constant(y_col[x], s_col[x]), "\n")
- #   x += 1
-
-wells = df['Well_ID']
-#   y = kg*m/(m^2*s^2) * s^3/m
-y = df['Shear modulus, GPa'].isna().sum()
-
-def facies_fill_in(df):
-    i = len(df['X, m'])
-    print(df['Rock facies'])
-facies_fill_in(df)
