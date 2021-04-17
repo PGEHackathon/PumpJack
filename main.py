@@ -2,6 +2,7 @@ from scipy import stats
 from scipy.stats import iqr
 import numpy as np
 import pandas as pd
+import math
 
 class Well:
     #
@@ -11,7 +12,7 @@ class Well:
     # 
 
     def __init__(self, well):
-        #   ID = well_no
+        #   id = well_no
         self.id = well['Well_ID'].unique()[0]
         #   x = unique x value (meters) in the 20 pieces of data
         self.x = well['X, m'].unique()[0]
@@ -19,7 +20,9 @@ class Well:
         self.y = well['Y, m'].unique()[0]
 
         # self.attributes = []
+        print(well)
         well = self.threshold_nan_filler(well)
+        print(well)
         # for x in well.columns:
         #     self.attributes.append((x, list(well.loc[:, x].values)))
 
@@ -27,22 +30,21 @@ class Well:
         # create for loop to run through each column and return percent NaN 
         for column in well:
             missing_percent_stat = well[column].isnull().sum() * (1 / (len(well[column])))
-            if (column == 'Well_ID' or column == 'Rock facies'):
-                continue
             if (column == 'Rock facies'):
-                well = well.drop([column])
                 continue
-            if (missing_percent_stat >= .2):
-               well = well.drop([column])
+            elif (column == 'Well_ID' or column == 'X, m' or column == 'Y, m'):
+                well = well.drop(column, 1)
+            elif (missing_percent_stat >= .2):
+                well = well.drop(column, 1)
             elif (missing_percent_stat <= .2):
-               mean_filler = np.average(well[column])
-               x = len(well[column])
-               for i in range(x):
-                   if well[column][i] == np.nan:
-                      well[column][i] = mean_filler
-
-
-
+                #   creating a masked array of data
+                masked = np.ma.masked_array(well[column], np.isnan(well[column]))
+                mean_filler = np.ma.average(masked)
+                print(column, "with missing percent stat of:", missing_percent_stat, "\n with weighted column average of:", mean_filler)
+                for i in range(len(well[column])):
+                    print(well[column].iloc[i], "\t is nan:", math.isnan(well.at[i, column]))
+                    if math.isnan(well.at[i, column]):
+                        well[column].iloc[i] = mean_filler
         return well
 
         
@@ -102,11 +104,13 @@ df = pd.read_csv('wellbore_data_producer_wells.csv')
 
 well_ID_unique = df.Well_ID.unique()
 
-def instantiate_wells(DF):
+def instantiate_wells(df):
     wells = []
-    for x in well_ID_unique:
-        well = Well(DF[DF.Well_ID == x])
-        wells.append(well)
+    well = Well(df[df.Well_ID == 'Well_no_2'])
+    wells.append(well)
+    # for x in well_ID_unique:
+    #     well = Well(df[df.Well_ID == x])
+    #     wells.append(well)
     return wells
 
 wells = instantiate_wells(df)
